@@ -4,3 +4,5 @@ cookie
 video
 
 *.exe
+
+.env

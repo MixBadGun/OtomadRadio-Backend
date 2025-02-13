@@ -155,8 +155,8 @@ def find_latest_log(dir):
     return list[-1]
 
 async def running():
-    favorites = [2775060305]
-    log_dir = "C:/Users/z1059/Documents/弹幕姬/Plugins/DanmuLog/"
+    favorites = os.getenv("FAVORITES", "").split(",")
+    log_dir = os.getenv("LOG_DIR", "")
 
     BILI_PLAY_LIST = BiliPlayList(favorites)
     PLAYER = Player()
@@ -232,7 +232,7 @@ def messaging():
         )
     })
     cors.add(app.router.add_get('/sse', Messager.sse_handler))
-    aiohttp.web.run_app(app, host='127.0.0.1', port=8080)
+    aiohttp.web.run_app(app, host='127.0.0.1', port=int(os.getenv("LOG_DIR", "8080")))
 
 def check_dir():
     """
