@@ -49,7 +49,6 @@ class BiliUtils:
             except:
                 return -1
         if(id[0:2] == "BV"):
-            logging.info("是BV号")
             async with aiohttp.ClientSession() as session:
                 url = "https://api.bilibili.com/x/web-interface/view"
                 try:
@@ -78,4 +77,30 @@ class BiliUtils:
                         result = await response.json()
                         return result
                 except:
+                    logging.warning(f"{aid} 信息获取失败！")
                     return {'code': -1, 'data': {}}
+                
+    async def get_tag(aid: int):
+        async with aiohttp.ClientSession() as session:
+                url = "https://api.bilibili.com/x/tag/archive/tags"
+                try:
+                    tag_list = []
+                    async with session.get(url, params={"aid": aid}, headers=headers) as response:
+                        result = await response.json()
+                        for tag in result["data"]:
+                            tag_list.append(tag["tag_name"])
+                        return tag_list
+                except:
+                    logging.warning(f"{aid} TAG 获取失败！")
+                    return []
+    
+    async def get_user_level(uid: int):
+        async with aiohttp.ClientSession() as session:
+                url = "https://api.bilibili.com/x/web-interface/card"
+                try:
+                    async with session.get(url, params={"mid": uid}, headers=headers) as response:
+                        result = await response.json()
+                        return result["data"]["card"]["level_info"]["current_level"]
+                except:
+                    logging.warning("用户信息获取失败！")
+                    return 1
