@@ -95,23 +95,23 @@ class BiliPlayList():
             lists = csv.DictReader(csvfile)
             for single in lists:
                 if(aid == int(single["aid"])):
-                    return (False,False)
+                    return False,False
 
         ## 获取作品信息
         info = await BiliUtils.get_info(aid)
         # 失效不点
         if(info["code"] < 0):
-            return (False, False)
+            return False, False
         # 超过时长不点
         MAX_DURATION = float(os.getenv("MAX_DURATION",10)) * 60
         if(info["data"]["duration"] > MAX_DURATION):
-            return (False, False)
+            return False, False
         # 时间太久远不点
         if(info["data"]["pubdate"] < time.mktime(time.strptime(os.getenv("OLDEST_YEAR","2015"), "%Y"))):
-            return (False, False)
+            return False, False
         # 评论数太少不点
         if(info["data"]["stat"]["reply"] < int(os.getenv("LEAST_COMMENT",2))):
-            return (False, False)
+            return False, False
         # 特殊标题不点
         forbidden_keywords = [
             "补档", "猎奇", "精神污染", "高精", "流出", "视听禁止", "検索", "检索",
@@ -119,7 +119,7 @@ class BiliPlayList():
         ]
         for forbid in forbidden_keywords:
             if(forbid in info["data"]["title"]):
-                return (False, False)
+                return False, False
         ## 获取 TAG
         tag_list = await BiliUtils.get_tag(aid)
         # 不含硬性标签或不在指定分区内不点
@@ -131,64 +131,75 @@ class BiliPlayList():
                 if(tag in r_tag_list):
                     find_flag = True
             if(not find_flag):
-                return (False, False)
+                return False, False
         # 标签含有特殊词不点
         for tag in tag_list:
             for forbid in forbidden_keywords:
                 if forbid in tag:
-                    return (False, False)
+                    return False, False
             
         ### 软性标准
         # 仅 YTPMV 可收录
         if("YTPMV" not in tag_list and "ytpmv" not in tag_list):
-            return (True,False)
+            return True,False
         restrict_words = ["哈基米","电棍","叮咚鸡","ccb","踩踩背","胖宝宝"]
         for restrict in restrict_words:
             if(restrict in info["data"]["title"]):
-                return (True, False)
+                return True, False
         for tag in tag_list:
             for restrict in restrict_words:
                 if restrict in tag:
-                    return (True, False)
+                    return True, False
 
-        return (True,True)
+        return True,True
 
 
     def record_sender(self,sender: str = "无名氏") -> bool:
         '''记录发送者'''
-        MAX_TIMES = int(os.getenv("PICK_MAX_TIMES",2))
         REFRESH_DURATION = float(os.getenv("REFRESH_DURATION",60)) * 60 * 1000
         if(sender not in self.sender_record):
             self.sender_record[sender] = {
                 "record_start": time.perf_counter(),
                 "num": 1
             }
-            return True
         else:
             if(time.perf_counter() - self.sender_record[sender]["record_start"] >= REFRESH_DURATION):
                 self.sender_record[sender]["record_start"] = time.perf_counter()
                 self.sender_record[sender]["num"] = 0
-            if(self.sender_record[sender]["num"] >= MAX_TIMES):
-                return False
-            else:
-                self.sender_record[sender]["num"] += 1
+            self.sender_record[sender]["num"] += 1
+    
+    def judge_can_pick(self,sender: str = "无名氏") -> bool:
+        '''判断发送者'''
+        MAX_TIMES = int(os.getenv("PICK_MAX_TIMES",2))
+        REFRESH_DURATION = float(os.getenv("REFRESH_DURATION",60)) * 60 * 1000
+        if(sender not in self.sender_record):
+            return True
+        else:
+            if(time.perf_counter() - self.sender_record[sender]["record_start"] >= REFRESH_DURATION):
                 return True
+            else:
+                if(self.sender_record[sender]["num"] >= MAX_TIMES):
+                    return False
+                else:
+                    return True
+
         
 
     async def add(self,aid: int,sender: str = "无名氏"):
         '''添加视频'''
         # 判断点播上限
-        if(not self.record_sender(sender)):
+        if(not self.judge_can_pick(sender)):
             logging.info(f"{sender} 达到最大点播上限，点播失败！")
             await Messager.send_notice("error",f"{sender} 达到点播次数上限，点播失败！")
             return
         if(aid in self.aid_set):
             self.now_list.append(aid)
             logging.info(f"{aid} 被添加至现有列表中")
+            self.record_sender(sender)
             await Messager.send_notice("success",f"{sender} 成功点播 av{aid}")
             return
         # 判断是否达到播放标准
-        checked_1 , checked_2 = self.judge_by_aid(aid)
+        checked_1 , checked_2 = await self.judge_by_aid(aid)
         if(not checked_1):
             logging.info(f"av{aid} 未达准入标准，{sender} 点播失败！")
             await Messager.send_notice("error",f"av{aid} 未达准入标准，{sender} 点播失败！")
@@ -199,6 +210,7 @@ class BiliPlayList():
             self.aid_set.add(aid)
             await self.add_to_fav(aid)
             logging.info(f"{aid} 被添加至双列表中")
+        self.record_sender(sender)
         await Messager.send_notice("success",f"{sender} 成功点播 av{aid}")
 
     async def add_to_fav(self,aid: int):
@@ -287,7 +299,9 @@ async def running():
 
     log_name = find_latest_log(log_dir)
     log_file = open(log_dir + log_name,"r",encoding="utf-8-sig")
-    log_file.read()
+    line = log_file.readline()
+    while(line):
+        line = log_file.readline()
 
     while(True):
         await asyncio.sleep(1)
@@ -320,7 +334,6 @@ async def running():
                         await Messager.send_playlist(BILI_PLAY_LIST.now_list_info)
 
                 if(new_damaku[0:2]) == "烟花":
-                    logging.info("有了")
                     ids = new_damaku.replace("烟花","").replace(" ","").replace("\n","")
                     try:
                         fire_num = int(ids)
