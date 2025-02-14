@@ -71,6 +71,8 @@ class BiliPlayList():
             return
         with open("./cookie/cookie.txt", "r") as file:
             for cookie_item in file.read().replace(" ","").split(";"):
+                if(cookie_item == ""):
+                    continue
                 cookie_map = cookie_item.split("=")
                 self.cookies[cookie_map[0]] = cookie_map[1]
 
