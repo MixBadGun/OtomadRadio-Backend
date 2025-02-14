@@ -1,4 +1,5 @@
 import csv
+import datetime
 import os
 import random
 import time
@@ -10,6 +11,7 @@ import threading
 import aiohttp_cors
 
 from bili_utils import BiliUtils
+from cookie_utils import BrowserCookier
 from sse_utils import Messager
 
 logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(levelname)s@%(funcName)s: %(message)s',encoding="utf-8")
@@ -297,6 +299,8 @@ async def running():
     wait_time = 0
     delta_time = 0
 
+    last_checked_day = datetime.datetime.now().strftime('%Y-%m-%d')
+
     log_name = find_latest_log(log_dir)
     log_file = open(log_dir + log_name,"r",encoding="utf-8-sig")
     line = log_file.readline()
@@ -360,6 +364,11 @@ async def running():
         wait_time = await PLAYER.play(f"./video/{aid}.mp4")
 
         last_check_time = time.perf_counter()
+
+        # 更新 Cookies
+        if(last_checked_day != datetime.datetime.now().strftime('%Y-%m-%d')):
+            await BrowserCookier.pull_new_cookie()
+            BiliPlayList.load_cookie()
               
 def messaging():
     app = aiohttp.web.Application()
@@ -394,6 +403,8 @@ def check_dir():
 
 if __name__ == '__main__':
     check_dir()
+    if(not os.path.exists("./cookie/cookie.txt")):
+        asyncio.run(BrowserCookier.pull_new_cookie())
     loop = asyncio.get_event_loop()
     loop.create_task(running())
     thread = threading.Thread(target=messaging)
