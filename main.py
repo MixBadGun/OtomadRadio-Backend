@@ -13,6 +13,9 @@ import aiohttp_cors
 from bili_utils import BiliUtils
 from cookie_utils import BrowserCookier
 from sse_utils import Messager
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(levelname)s@%(funcName)s: %(message)s',encoding="utf-8")
 logger = logging.getLogger(__name__)
