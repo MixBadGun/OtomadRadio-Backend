@@ -258,6 +258,8 @@ class BiliPlayList():
                     async with session.get(url, params=params, headers=headers) as response:
                         result = await response.json()
                     await asyncio.sleep(1)
+                    if(not isinstance(result["data"]["medias"],list)):
+                        continue
                     for video in result["data"]["medias"]:
                         try:
                             path = await BiliUtils.get_video(video["id"])
