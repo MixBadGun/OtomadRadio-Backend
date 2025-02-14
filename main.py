@@ -255,10 +255,10 @@ class BiliPlayList():
                         try:
                             path = await BiliUtils.get_video(video["id"])
                             self.aid_set.add(video["id"])
-                            logging.info(f"{video["id"]} 已被更新至列表")
+                            logging.info(f"{video['id']} 已被更新至列表")
                         except:
                             self.aid_set.add(-video["id"])
-                            logging.info(f"{video["id"]} 失效，记负数")
+                            logging.info(f"{video['id']} 失效，记负数")
                 i += 1
     
     async def update_now_playlist_info(self):

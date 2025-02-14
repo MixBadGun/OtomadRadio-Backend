@@ -1,7 +1,6 @@
 import asyncio
 import os
 import logging
-import subprocess
 
 import aiohttp
 
