@@ -58,6 +58,8 @@ class BiliPlayList():
     sender_record: dict = {}
     cookies: dict[str, str] = {}
 
+    is_pickable: bool = True
+
     def __init__(self, favorites: list[int]):
         self.load_cookie()
         self.favorites = favorites
@@ -219,8 +221,17 @@ class BiliPlayList():
         '''归还点播次数'''
         self.sender_record[sender]["num"] -= 1
 
+    def switch_is_pickable(self):
+        '''切换可点播状态'''
+        self.is_pickable = not self.is_pickable
+
     async def add(self,aid: int,sender: str = "无名氏"):
         '''添加视频'''
+        # 判断是否全服禁点
+        if(not self.is_pickable):
+            logging.info(f"{sender} 因电台已关闭点播功能，点播失败！")
+            await Messager.send_notice("error","电台已关闭点播功能，暂不可点播",sender)
+            return
         # 判断点播上限，管理员可直接通过
         if(not self.judge_can_pick(sender) and not require_admin(sender)):
             logging.info(f"{sender} 达到最大点播上限，点播失败！")
@@ -463,15 +474,20 @@ async def running():
                     await Messager.send_playlist(BILI_PLAY_LIST.get_now_list_info())
                 
                 if(new_damaku[0:2]) == "拉黑":
-                    ids = new_damaku.replace("拉黑","").split(" ")
-                    for vid_id in ids:
-                        if(len(vid_id) <= 0):
-                            continue
-                        vid_id = vid_id.replace("\n","")
-                        aid = await BiliUtils.format_id(vid_id)
-                        if(aid <= 0):
-                            continue
-                        BILI_PLAY_LIST.blacklist_by_aid(aid,"")
+                    if(require_admin(sender)):
+                        ids = new_damaku.replace("拉黑","").split(" ")
+                        for vid_id in ids:
+                            if(len(vid_id) <= 0):
+                                continue
+                            vid_id = vid_id.replace("\n","")
+                            aid = await BiliUtils.format_id(vid_id)
+                            if(aid <= 0):
+                                continue
+                            BILI_PLAY_LIST.blacklist_by_aid(aid,"")
+                
+                if(new_damaku[0:2]) == "停点":
+                    if(require_admin(sender)):
+                        BILI_PLAY_LIST.switch_is_pickable()
 
         # 切换播放区域
         if(delta_time < wait_time):
