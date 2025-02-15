@@ -452,8 +452,8 @@ async def running():
                         await Messager.send_notice("success",f"{sender} 切播成功",sender)
                         # 拉黑
                         if(require_admin(sender)):
-                            ids = new_damaku.split(" ")
-                            if("-b" in ids):
+                            _ids = new_damaku.replace("\n","").split(" ")
+                            if("-b" in _ids):
                                 BILI_PLAY_LIST.blacklist_by_aid(
                                     BILI_PLAY_LIST.get_playing_info()["data"]["aid"],
                                     BILI_PLAY_LIST.get_playing_info()["data"]["title"]
