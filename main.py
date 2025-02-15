@@ -210,7 +210,7 @@ class BiliPlayList():
             return
         if(aid in self.aid_set):
             self.now_list.append({  "aid" : aid,
-                                    "picker" : sender
+                                    "sender" : sender
                                 })
             logging.info(f"{aid} 被添加至现有列表中")
             self.record_sender(sender)
@@ -224,7 +224,7 @@ class BiliPlayList():
             return
         path = await BiliUtils.get_video(aid)
         self.now_list.append({  "aid" : aid,
-                                "picker" : sender  })
+                                "sender" : sender  })
         if(checked_2):
             self.aid_set.add(aid)
             await self.add_to_fav(aid)
