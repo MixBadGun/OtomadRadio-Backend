@@ -46,7 +46,7 @@ class Messager:
         # await asyncio.sleep(0.1)
     
     @classmethod
-    async def send_notice(self,state: str,message: str):
+    async def send_notice(self,state: str,message: str,sender: str = "无名氏"):
         '''
         发送通知信息
         '''
@@ -54,7 +54,8 @@ class Messager:
             "type": "notice",
             "data": {
                 "state": state,
-                "message": message
+                "message": message,
+                "sender": sender
             }
         }
         await self.send(data)

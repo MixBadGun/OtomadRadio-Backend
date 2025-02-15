@@ -198,19 +198,19 @@ class BiliPlayList():
         # 判断点播上限
         if(not self.judge_can_pick(sender)):
             logging.info(f"{sender} 达到最大点播上限，点播失败！")
-            await Messager.send_notice("error",f"{sender} 达到点播次数上限，点播失败！")
+            await Messager.send_notice("error",f"{sender} 达到点播次数上限，点播失败！",sender)
             return
         if(aid in self.aid_set):
             self.now_list.append(aid)
             logging.info(f"{aid} 被添加至现有列表中")
             self.record_sender(sender)
-            await Messager.send_notice("success",f"{sender} 成功点播 av{aid}")
+            await Messager.send_notice("success",f"{sender} 成功点播 av{aid}",sender)
             return
         # 判断是否达到播放标准
         checked_1 , checked_2 = await self.judge_by_aid(aid)
         if(not checked_1):
             logging.info(f"av{aid} 未达准入标准，{sender} 点播失败！")
-            await Messager.send_notice("error",f"av{aid} 未达准入标准，{sender} 点播失败！")
+            await Messager.send_notice("error",f"av{aid} 未达准入标准，{sender} 点播失败！",sender)
             return
         path = await BiliUtils.get_video(aid)
         self.now_list.append(aid)
@@ -219,7 +219,7 @@ class BiliPlayList():
             await self.add_to_fav(aid)
             logging.info(f"{aid} 被添加至双列表中")
         self.record_sender(sender)
-        await Messager.send_notice("success",f"{sender} 成功点播 av{aid}")
+        await Messager.send_notice("success",f"{sender} 成功点播 av{aid}",sender)
 
     async def add_to_fav(self,aid: int):
         '''添加至收藏夹'''
@@ -347,6 +347,7 @@ async def running():
                 new_damaku = new_log.split("说：")[-1]
 
                 if(new_damaku[0:2]) == "点播":
+                    await Messager.send_notice("loading",f"正在处理 {sender} 的点播...",sender)
                     ids = new_damaku.replace("点播","").split(" ")
                     for vid_id in ids:
                         if(len(vid_id) <= 0):
