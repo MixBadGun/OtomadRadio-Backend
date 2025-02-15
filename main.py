@@ -519,6 +519,7 @@ async def running():
         if(last_checked_day != datetime.datetime.now().strftime('%Y-%m-%d')):
             await BrowserCookier.pull_new_cookie()
             BiliPlayList.load_cookie()
+            last_checked_day = datetime.datetime.now().strftime('%Y-%m-%d')
               
 def messaging():
     app = aiohttp.web.Application()
