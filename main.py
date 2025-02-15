@@ -262,6 +262,10 @@ class BiliPlayList():
                     if(not isinstance(result["data"]["medias"],list)):
                         continue
                     for video in result["data"]["medias"]:
+                        if(video["attr"] != 0):
+                            self.aid_set.add(-video["id"])
+                            logging.info(f"{video['id']} 失效，记负数")
+                            continue
                         try:
                             path = await BiliUtils.get_video(video["id"])
                             self.aid_set.add(video["id"])
