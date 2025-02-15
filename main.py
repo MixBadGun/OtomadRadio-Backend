@@ -103,6 +103,8 @@ class BiliPlayList():
 
     def random_pick(self):
         randomed = random.choice(list(self.aid_set))
+        while(randomed < 0):
+            randomed = random.choice(list(self.aid_set))
         self.playing_sender = "$$$SYSTEM"
         logging.info(f"列表为空，随机播放 {randomed}")
         return randomed , "无人点播"
