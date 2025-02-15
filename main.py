@@ -467,7 +467,7 @@ async def running():
                             continue
                         try:
                             del_id = int(id)
-                            await BILI_PLAY_LIST.delete(del_id,sender,b_flag)
+                            await BILI_PLAY_LIST.delete(del_id - 1,sender,b_flag)
                         except:
                             continue
                     await BILI_PLAY_LIST.update_now_playlist_info()
