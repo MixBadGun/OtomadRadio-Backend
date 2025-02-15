@@ -343,7 +343,9 @@ class BiliPlayList():
             find_flag = False
             for info in self.now_list_info:
                 if vid["aid"] == info["aid"]:
-                    info_list.append(info)
+                    copy_info = info
+                    copy_info["sender"] = vid["sender"]
+                    info_list.append(copy_info)
                     find_flag = True
                     break
             if(not find_flag):
