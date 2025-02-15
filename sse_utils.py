@@ -78,9 +78,11 @@ class Messager:
         '''
         发送作品信息
         '''
+        infoed = await BiliUtils.get_info(aid)
+        infoed.update({"sender": sender})
         data = {
             "type": "playinfo",
-            "data": await BiliUtils.get_info(aid).update({"sender": sender}),
+            "data": infoed
         }
         await self.send(data)
 
