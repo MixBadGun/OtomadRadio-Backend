@@ -129,7 +129,7 @@ class BiliPlayList():
         # 特殊标题不点
         forbidden_keywords = [
             "补档", "猎奇", "精神污染", "高精", "流出", "视听禁止", "検索", "检索",
-            "武器A", "武器a", "10492", "10388", "恶俗"
+            "武器A", "武器a", "10492", "10388", "恶俗", "无码"
         ]
         for forbid in forbidden_keywords:
             if(forbid in info["data"]["title"]):
