@@ -518,7 +518,7 @@ async def running():
         # 更新 Cookies
         if(last_checked_day != datetime.datetime.now().strftime('%Y-%m-%d')):
             await BrowserCookier.pull_new_cookie()
-            BiliPlayList.load_cookie()
+            BILI_PLAY_LIST.load_cookie()
             last_checked_day = datetime.datetime.now().strftime('%Y-%m-%d')
               
 def messaging():
