@@ -50,7 +50,8 @@ class Player:
 
 class BiliPlayList():
     aid_set: set[int] = set()
-    now_list: list[int] = []
+    now_list: list[dict] = []
+    playing_sender: str = ""
     now_list_info: list = []
     favorites: list[int] = []
     sender_record: dict = {}
@@ -69,6 +70,9 @@ class BiliPlayList():
     def get_now_list_info(self):
         return self.now_list_info
 
+    def get_playing_sender(self):
+        return self.playing_sender
+
     def load_cookie(self):
         if not os.path.exists("./cookie/cookie.txt"):
             logging.warning("未找到 cookie/cookies.txt !")
@@ -82,14 +86,16 @@ class BiliPlayList():
 
     def pick_now(self):
         picked = self.now_list[0]
+        self.playing_sender = picked["sender"]
         self.now_list.pop(0)
-        logging.info(f"播放当前列表 {picked}")
-        return picked
+        logging.info(f"播放当前列表 {picked['aid']}")
+        return picked['aid'] , picked["sender"]
 
     def random_pick(self):
         randomed = random.choice(list(self.aid_set))
+        self.playing_sender = "$$$SYSTEM"
         logging.info(f"列表为空，随机播放 {randomed}")
-        return randomed
+        return randomed , "无人点播"
 
     async def judge_by_aid(self,aid: int) -> tuple[bool,bool]:
         '''
@@ -190,18 +196,22 @@ class BiliPlayList():
                     return False
                 else:
                     return True
-
-        
+    
+    def return_pick(self,sender: str = "无名氏"):
+        '''归还点播次数'''
+        self.sender_record[sender]["num"] -= 1
 
     async def add(self,aid: int,sender: str = "无名氏"):
         '''添加视频'''
-        # 判断点播上限
-        if(not self.judge_can_pick(sender)):
+        # 判断点播上限，管理员可直接通过
+        if(not self.judge_can_pick(sender) and not require_admin(sender)):
             logging.info(f"{sender} 达到最大点播上限，点播失败！")
             await Messager.send_notice("error",f"{sender} 达到点播次数上限，点播失败！",sender)
             return
         if(aid in self.aid_set):
-            self.now_list.append(aid)
+            self.now_list.append({  "aid" : aid,
+                                    "picker" : sender
+                                })
             logging.info(f"{aid} 被添加至现有列表中")
             self.record_sender(sender)
             await Messager.send_notice("success",f"{sender} 成功点播 av{aid}",sender)
@@ -213,13 +223,30 @@ class BiliPlayList():
             await Messager.send_notice("error",f"av{aid} 未达准入标准，{sender} 点播失败！",sender)
             return
         path = await BiliUtils.get_video(aid)
-        self.now_list.append(aid)
+        self.now_list.append({  "aid" : aid,
+                                "picker" : sender  })
         if(checked_2):
             self.aid_set.add(aid)
             await self.add_to_fav(aid)
             logging.info(f"{aid} 被添加至双列表中")
         self.record_sender(sender)
         await Messager.send_notice("success",f"{sender} 成功点播 av{aid}",sender)
+    
+    async def delete(self,index: int,sender: str = "无名氏"):
+        if(self.now_list[index]["sender"] == sender):
+            self.now_list.pop(index)
+            logging.info(f"{sender} 删除 {index + 1} 号点播成功")
+            self.return_pick(sender)
+            await Messager.send_notice("success",f"{sender} 删除 {index + 1} 号点播成功",sender)
+        else:
+            if(require_admin(sender)):
+                self.now_list.pop(index)
+                logging.info(f"删除 {index + 1} 号点播成功")
+                await Messager.send_notice("success",f"删除 {index + 1} 号点播成功",sender)
+            else:
+                logging.info(f"{index + 1} 号点播不是 {sender} 的，删除失败！")
+                await Messager.send_notice("error",f"{index + 1} 号点播不是 {sender} 的，删除失败！",sender)
+
 
     async def add_to_fav(self,aid: int):
         '''添加至收藏夹'''
@@ -280,14 +307,15 @@ class BiliPlayList():
         for vid in self.now_list:
             find_flag = False
             for info in self.now_list_info:
-                if vid == info["aid"]:
+                if vid["aid"] == info["aid"]:
                     info_list.append(info)
                     find_flag = True
                     break
             if(not find_flag):
                 sinfo = {
-                    "aid": vid,
-                    "title": await BiliUtils.get_title(vid)
+                    "aid": vid["aid"],
+                    "title": await BiliUtils.get_title(vid["aid"]),
+                    "sender": vid["sender"]
                 }
                 info_list.append(sinfo)
         self.now_list_info = info_list
@@ -301,6 +329,16 @@ def find_latest_log(dir):
             pass
         return "tempLog.txt"
     return list[-1]
+
+def require_admin(sender) -> bool:
+    '''
+    判断是否为管理员
+    '''
+    ADMIN_LIST = os.getenv("ADMIN_LIST","").split(",")
+    if sender in ADMIN_LIST:
+        return True
+    else:
+        return False
 
 async def running():
     favorites = os.getenv("FAVORITES", "").split(",")
@@ -372,19 +410,42 @@ async def running():
                         fire_num = 1
                     await Messager.send_firework(fire_num,sender)
 
+                if(new_damaku[0:2]) == "切播":
+                    if(require_admin(sender) or BILI_PLAY_LIST.get_playing_sender() == sender):
+                        wait_time = 0
+                        logging.info(f"切播成功")
+                        await Messager.send_notice("success",f"{sender} 切播成功",sender)
+                    else:
+                        logging.info(f"正在播放的并不是 {sender} 点的，切播失败！")
+                        await Messager.send_notice("error",f"正在播放的并不是 {sender} 点的，切播失败！",sender)
+                
+                if(new_damaku[0:2]) == "删除":
+                    ids = new_damaku.replace("删除","").replace("\n","").split(" ")
+                    for id in ids:
+                        if id == "":
+                            continue
+                        try:
+                            del_id = int(id)
+                            await BILI_PLAY_LIST.delete(del_id,sender)
+                        except:
+                            continue
+                    await BILI_PLAY_LIST.update_now_playlist_info()
+                    await Messager.send_playlist(BILI_PLAY_LIST.get_now_list_info())
+                    
+
         # 切换播放区域
         if(delta_time < wait_time):
             continue
         if(BILI_PLAY_LIST.get_aid_num() <= 0):
             continue
         if(BILI_PLAY_LIST.get_now_num() > 0):
-            aid = BILI_PLAY_LIST.pick_now()
+            aid, play_sender = BILI_PLAY_LIST.pick_now()
         else:
-            aid = BILI_PLAY_LIST.random_pick()
+            aid, play_sender = BILI_PLAY_LIST.random_pick()
 
         await BILI_PLAY_LIST.update_now_playlist_info()
-        await Messager.send_playlist(BILI_PLAY_LIST.now_list_info)
-        await Messager.send_play_info(aid)
+        await Messager.send_playlist(BILI_PLAY_LIST.get_now_list_info())
+        await Messager.send_play_info(aid, play_sender)
 
         wait_time = await PLAYER.play(f"./video/{aid}.mp4")
 
