@@ -9,6 +9,7 @@ import asyncio
 import aiohttp
 import threading
 import aiohttp_cors
+import keyboard
 
 from bili_utils import BiliUtils
 from cookie_utils import BrowserCookier
@@ -16,9 +17,6 @@ from sse_utils import Messager
 from dotenv import load_dotenv
 
 load_dotenv()
-
-logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(levelname)s@%(funcName)s: %(message)s',encoding="utf-8")
-logger = logging.getLogger(__name__)
 
 headers = {
     "Accept": "*/*",
@@ -67,6 +65,9 @@ class BiliPlayList():
     
     def get_now_num(self):
         return len(self.now_list)
+
+    def get_now_list_info(self):
+        return self.now_list_info
 
     def load_cookie(self):
         if not os.path.exists("./cookie/cookie.txt"):
@@ -178,7 +179,7 @@ class BiliPlayList():
     def judge_can_pick(self,sender: str = "无名氏") -> bool:
         '''判断发送者'''
         MAX_TIMES = int(os.getenv("PICK_MAX_TIMES",2))
-        REFRESH_DURATION = float(os.getenv("REFRESH_DURATION",60)) * 60 * 1000
+        REFRESH_DURATION = float(os.getenv("REFRESH_DURATION",60)) * 60
         if(sender not in self.sender_record):
             return True
         else:
@@ -289,7 +290,12 @@ class BiliPlayList():
 
 def find_latest_log(dir):
     list = os.listdir(dir)
-    list.sort(key=lambda fn: os.path.getmtime(dir+fn) if not os.path.isdir(dir+fn) else 0)
+    list.sort(key=lambda fn: os.path.getmtime(os.path.join(dir,fn)) if not os.path.isdir(os.path.join(dir,fn)) else 0)
+    if(len(list) == 0):
+        logging.warning("不存在弹幕日志！已新建临时日志。")
+        with open(os.path.join(dir,"tempLog.txt","w")):
+            pass
+        return "tempLog.txt"
     return list[-1]
 
 async def running():
@@ -309,20 +315,26 @@ async def running():
     last_checked_day = datetime.datetime.now().strftime('%Y-%m-%d')
 
     log_name = find_latest_log(log_dir)
-    log_file = open(log_dir + log_name,"r",encoding="utf-8-sig")
+    log_file = open(os.path.join(log_dir,log_name),"r",encoding="utf-8-sig")
     line = log_file.readline()
     while(line):
         line = log_file.readline()
 
-    while(True):
+    while(True):        
         await asyncio.sleep(1)
+
+        if keyboard.is_pressed('space'):
+            await BILI_PLAY_LIST.add(list(BILI_PLAY_LIST.aid_set)[0],sender = str(time.perf_counter()))
+            await BILI_PLAY_LIST.update_now_playlist_info()
+            await Messager.send_playlist(BILI_PLAY_LIST.get_now_list_info())
+
         delta_time = time.perf_counter() - last_check_time
 
         new_log_name = find_latest_log(log_dir)
         if(new_log_name != log_name):
             log_file.close()
             log_name = new_log_name
-            log_file = open(log_dir + log_name,"r",encoding="utf-8-sig")
+            log_file = open(os.path.join(log_dir,log_name),"r",encoding="utf-8-sig")
 
         # 弹幕检测区域
         new_log = log_file.readline()
@@ -342,7 +354,7 @@ async def running():
                             continue
                         loop.create_task(BILI_PLAY_LIST.add(aid,sender))
                         await BILI_PLAY_LIST.update_now_playlist_info()
-                        await Messager.send_playlist(BILI_PLAY_LIST.now_list_info)
+                        await Messager.send_playlist(BILI_PLAY_LIST.get_now_list_info())
 
                 if(new_damaku[0:2]) == "烟花":
                     ids = new_damaku.replace("烟花","").replace(" ","").replace("\n","")
@@ -393,7 +405,7 @@ def check_dir():
     """
     检查文件夹是否齐全，否则就新建
     """
-    dirpaths = ["video","cookie","option"]
+    dirpaths = ["video","cookie","option","log"]
     for dirpath in dirpaths:
         if not os.path.exists(dirpath):
             logging.warning(f"文件夹不齐全，新建了 {dirpath} 文件夹")
@@ -410,9 +422,22 @@ def check_dir():
 
 if __name__ == '__main__':
     check_dir()
-    if(not os.path.exists("./cookie/cookie.txt")):
-        asyncio.run(BrowserCookier.pull_new_cookie())
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='[%(asctime)s] %(levelname)s@%(funcName)s: %(message)s',
+        filename="log/" + time.strftime("%Y-%m-%d %H-%M-%S") + ".log",
+        encoding="utf-8-sig")
+    logger = logging.getLogger()
+    formatter = logging.Formatter("[%(levelname)s]\t%(message)s")
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel("DEBUG")
+    logger.addHandler(console_handler)
+
     loop = asyncio.get_event_loop()
+    if(not os.path.exists("./cookie/cookie.txt")):
+        loop.run_until_complete(BrowserCookier.pull_new_cookie())
     loop.create_task(running())
     thread = threading.Thread(target=messaging)
     thread.start()
