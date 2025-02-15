@@ -452,7 +452,10 @@ async def running():
                         if(require_admin(sender)):
                             ids = new_damaku.split(" ")
                             if("-b" in ids):
-                                BILI_PLAY_LIST.blacklist_by_aid(aid,BILI_PLAY_LIST.get_playing_info()["data"]["title"])
+                                BILI_PLAY_LIST.blacklist_by_aid(
+                                    BILI_PLAY_LIST.get_playing_info()["data"]["aid"],
+                                    BILI_PLAY_LIST.get_playing_info()["data"]["title"]
+                                    )
                     else:
                         logging.info(f"正在播放的并不是 {sender} 点的，切播失败！")
                         await Messager.send_notice("error",f"正在播放的并不是 {sender} 点的，切播失败！",sender)
