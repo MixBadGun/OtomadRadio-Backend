@@ -52,6 +52,7 @@ class BiliPlayList():
     aid_set: set[int] = set()
     now_list: list[dict] = []
     playing_sender: str = ""
+    playing_info: dict = {}
     now_list_info: list = []
     favorites: list[int] = []
     sender_record: dict = {}
@@ -72,6 +73,13 @@ class BiliPlayList():
 
     def get_playing_sender(self):
         return self.playing_sender
+    
+    async def set_playing_info(self,aid: int):
+        self.playing_info = await BiliUtils.get_info(aid)
+
+    def get_playing_info(self):
+        return self.playing_info
+
 
     def load_cookie(self):
         if not os.path.exists("./cookie/cookie.txt"):
@@ -97,6 +105,16 @@ class BiliPlayList():
         logging.info(f"列表为空，随机播放 {randomed}")
         return randomed , "无人点播"
 
+    def blacklist_by_aid(self,aid: int,title: str = ""):
+        with open("./option/blacklist.csv","r", encoding="utf-8-sig") as csvfile:
+            fields = csv.DictReader(csvfile).fieldnames
+        with open("./option/blacklist.csv","a", encoding="utf-8-sig", newline='') as csvfile:
+            lists = csv.DictWriter(csvfile, fields)
+            lists.writerow({
+                "aid": aid,
+                "title": title
+            })
+    
     async def judge_by_aid(self,aid: int) -> tuple[bool,bool]:
         '''
         判断作品是否达标
@@ -218,7 +236,7 @@ class BiliPlayList():
             return
         # 判断是否达到播放标准
         checked_1 , checked_2 = await self.judge_by_aid(aid)
-        if(not checked_1):
+        if(not checked_1 and not require_admin(sender)):
             logging.info(f"av{aid} 未达准入标准，{sender} 点播失败！")
             await Messager.send_notice("error",f"av{aid} 未达准入标准，{sender} 点播失败！",sender)
             return
@@ -232,7 +250,7 @@ class BiliPlayList():
         self.record_sender(sender)
         await Messager.send_notice("success",f"{sender} 成功点播 av{aid}",sender)
     
-    async def delete(self,index: int,sender: str = "无名氏"):
+    async def delete(self,index: int,sender: str = "无名氏",b_flag = False):
         if(self.now_list[index]["sender"] == sender):
             self.now_list.pop(index)
             logging.info(f"{sender} 删除 {index + 1} 号点播成功")
@@ -240,12 +258,16 @@ class BiliPlayList():
             await Messager.send_notice("success",f"{sender} 删除 {index + 1} 号点播成功",sender)
         else:
             if(require_admin(sender)):
+                if(b_flag):
+                    black_aid = self.now_list[index]["aid"]
+                    self.blacklist_by_aid(black_aid, self.now_list_info[index]["title"])
                 self.now_list.pop(index)
                 logging.info(f"删除 {index + 1} 号点播成功")
                 await Messager.send_notice("success",f"删除 {index + 1} 号点播成功",sender)
             else:
                 logging.info(f"{index + 1} 号点播不是 {sender} 的，删除失败！")
                 await Messager.send_notice("error",f"{index + 1} 号点播不是 {sender} 的，删除失败！",sender)
+
 
 
     async def add_to_fav(self,aid: int):
@@ -415,23 +437,41 @@ async def running():
                         wait_time = 0
                         logging.info(f"切播成功")
                         await Messager.send_notice("success",f"{sender} 切播成功",sender)
+                        # 拉黑
+                        if(require_admin(sender)):
+                            ids = new_damaku.split(" ")
+                            if("-b" in ids):
+                                BILI_PLAY_LIST.blacklist_by_aid(aid,BILI_PLAY_LIST.get_playing_info()["data"]["title"])
                     else:
                         logging.info(f"正在播放的并不是 {sender} 点的，切播失败！")
                         await Messager.send_notice("error",f"正在播放的并不是 {sender} 点的，切播失败！",sender)
                 
                 if(new_damaku[0:2]) == "删除":
                     ids = new_damaku.replace("删除","").replace("\n","").split(" ")
+                    b_flag = False
+                    if("-b" in ids):
+                        b_flag = True
                     for id in ids:
-                        if id == "":
+                        if id == "" or id == "-b":
                             continue
                         try:
                             del_id = int(id)
-                            await BILI_PLAY_LIST.delete(del_id,sender)
+                            await BILI_PLAY_LIST.delete(del_id,sender,b_flag)
                         except:
                             continue
                     await BILI_PLAY_LIST.update_now_playlist_info()
                     await Messager.send_playlist(BILI_PLAY_LIST.get_now_list_info())
-                    
+                
+                if(new_damaku[0:2]) == "拉黑":
+                    ids = new_damaku.replace("拉黑","").split(" ")
+                    for vid_id in ids:
+                        if(len(vid_id) <= 0):
+                            continue
+                        vid_id = vid_id.replace("\n","")
+                        aid = await BiliUtils.format_id(vid_id)
+                        if(aid <= 0):
+                            continue
+                        BILI_PLAY_LIST.blacklist_by_aid(aid,"")
 
         # 切换播放区域
         if(delta_time < wait_time):
@@ -445,7 +485,8 @@ async def running():
 
         await BILI_PLAY_LIST.update_now_playlist_info()
         await Messager.send_playlist(BILI_PLAY_LIST.get_now_list_info())
-        await Messager.send_play_info(aid, play_sender)
+        await BILI_PLAY_LIST.set_playing_info(aid)
+        await Messager.send_play_info(aid, BILI_PLAY_LIST.get_playing_info(), play_sender)
 
         wait_time = await PLAYER.play(f"./video/{aid}.mp4")
 

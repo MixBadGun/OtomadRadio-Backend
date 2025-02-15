@@ -74,11 +74,11 @@ class Messager:
         await self.send(data)
     
     @classmethod
-    async def send_play_info(self,aid: int,sender: str = "无人点播"):
+    async def send_play_info(self,aid: int,data,sender: str = "无人点播"):
         '''
         发送作品信息
         '''
-        infoed = await BiliUtils.get_info(aid)
+        infoed = data
         infoed["data"].update({"sender": sender})
         data = {
             "type": "playinfo",
