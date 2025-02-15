@@ -9,7 +9,7 @@ import asyncio
 import aiohttp
 import threading
 import aiohttp_cors
-import keyboard
+# import keyboard
 
 from bili_utils import BiliUtils
 from cookie_utils import BrowserCookier
@@ -322,11 +322,10 @@ async def running():
 
     while(True):        
         await asyncio.sleep(1)
-
-        if keyboard.is_pressed('space'):
-            await BILI_PLAY_LIST.add(list(BILI_PLAY_LIST.aid_set)[0],sender = str(time.perf_counter()))
-            await BILI_PLAY_LIST.update_now_playlist_info()
-            await Messager.send_playlist(BILI_PLAY_LIST.get_now_list_info())
+        # if keyboard.is_pressed('space'):
+        #     await BILI_PLAY_LIST.add(list(BILI_PLAY_LIST.aid_set)[0],sender = str(time.perf_counter()))
+        #     await BILI_PLAY_LIST.update_now_playlist_info()
+        #     await Messager.send_playlist(BILI_PLAY_LIST.get_now_list_info())
 
         delta_time = time.perf_counter() - last_check_time
 
