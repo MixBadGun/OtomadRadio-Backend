@@ -43,7 +43,7 @@ class Messager:
                     await response.write(jsoned_data.encode("utf-8"))
                 except:
                     self.response_list.remove(response)
-        await asyncio.sleep(0.1)
+        # await asyncio.sleep(0.1)
     
     @classmethod
     async def send_notice(self,state: str,message: str):

@@ -355,9 +355,11 @@ async def running():
                         aid = await BiliUtils.format_id(vid_id)
                         if(aid <= 0):
                             continue
-                        loop.create_task(BILI_PLAY_LIST.add(aid,sender))
-                        await BILI_PLAY_LIST.update_now_playlist_info()
-                        await Messager.send_playlist(BILI_PLAY_LIST.get_now_list_info())
+                        async def add_task():
+                            await BILI_PLAY_LIST.add(aid,sender)
+                            await BILI_PLAY_LIST.update_now_playlist_info()
+                            await Messager.send_playlist(BILI_PLAY_LIST.get_now_list_info())
+                        loop.create_task(add_task())
 
                 if(new_damaku[0:2]) == "烟花":
                     ids = new_damaku.replace("烟花","").replace(" ","").replace("\n","")
