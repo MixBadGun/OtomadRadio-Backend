@@ -496,6 +496,10 @@ async def running():
                     if(require_admin(sender)):
                         BILI_PLAY_LIST.switch_is_pickable()
 
+                if(new_damaku[0:2]) == "刷新":
+                    if(require_admin(sender)):
+                        await Messager.send_refresh()
+
         # 切换播放区域
         if(delta_time < wait_time):
             continue
@@ -517,6 +521,7 @@ async def running():
 
         # 更新 Cookies
         if(last_checked_day != datetime.datetime.now().strftime('%Y-%m-%d')):
+            await Messager.send_refresh()
             await BrowserCookier.pull_new_cookie()
             BILI_PLAY_LIST.load_cookie()
             last_checked_day = datetime.datetime.now().strftime('%Y-%m-%d')

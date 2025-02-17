@@ -99,3 +99,13 @@ class Messager:
             }
         }
         await self.send(data)
+
+    @classmethod
+    async def send_refresh(self):
+        '''
+        发送刷新信息
+        '''
+        data = {
+            "type": "refresh"
+        }
+        await self.send(data)
