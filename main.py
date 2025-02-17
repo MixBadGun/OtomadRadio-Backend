@@ -254,6 +254,11 @@ class BiliPlayList():
             await Messager.send_notice("error",f"av{aid} 未达准入标准，{sender} 点播失败！",sender)
             return
         path = await BiliUtils.get_video(aid)
+        # 二次检测，避免漏网之鱼
+        if(not self.judge_can_pick(sender) and not require_admin(sender)):
+            logging.info(f"{sender} 达到最大点播上限，点播失败！")
+            await Messager.send_notice("error",f"{sender} 达到点播次数上限，点播失败！",sender)
+            return
         self.now_list.append({  "aid" : aid,
                                 "sender" : sender  })
         if(checked_2):
