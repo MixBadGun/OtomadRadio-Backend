@@ -192,7 +192,7 @@ class BiliPlayList():
 
     def record_sender(self,sender: str = "无名氏") -> bool:
         '''记录发送者'''
-        REFRESH_DURATION = float(os.getenv("REFRESH_DURATION",60)) * 60 * 1000
+        REFRESH_DURATION = float(os.getenv("REFRESH_DURATION",60)) * 60
         if(sender not in self.sender_record):
             self.sender_record[sender] = {
                 "record_start": time.perf_counter(),
