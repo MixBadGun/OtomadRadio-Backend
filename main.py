@@ -594,8 +594,6 @@ async def running():
         await BILI_PLAY_LIST.set_playing_info(aid)
         await Messager.send_play_info(aid, BILI_PLAY_LIST.get_playing_info(), play_sender)
 
-        wait_time = await PLAYER.play(f"./video/{aid}.mp4")
-
         last_check_time = time.perf_counter()
 
         # 更新 Cookies
