@@ -582,17 +582,17 @@ async def running():
 
         is_safe = await BILI_PLAY_LIST.is_safe_for_play(aid)
 
+        await BILI_PLAY_LIST.update_now_playlist_info()
+        await Messager.send_playlist(BILI_PLAY_LIST.get_now_list_info())
+        await BILI_PLAY_LIST.set_playing_info(aid)
+        await Messager.send_play_info(aid, BILI_PLAY_LIST.get_playing_info(), play_sender)
+
         if(is_safe):
             wait_time = await PLAYER.play(f"./video/{aid}.mp4")
         else:
             logging.info(f"{aid} 不安全，播放不安全画面")
             await PLAYER.play_unsafe()
             wait_time = await BILI_PLAY_LIST.get_duration(aid)
-
-        await BILI_PLAY_LIST.update_now_playlist_info()
-        await Messager.send_playlist(BILI_PLAY_LIST.get_now_list_info())
-        await BILI_PLAY_LIST.set_playing_info(aid)
-        await Messager.send_play_info(aid, BILI_PLAY_LIST.get_playing_info(), play_sender)
 
         last_check_time = time.perf_counter()
 
