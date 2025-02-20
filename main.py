@@ -1,5 +1,6 @@
 import csv
 import datetime
+import json
 import os
 import random
 import time
@@ -9,6 +10,8 @@ import asyncio
 import aiohttp
 import threading
 import aiohttp_cors
+import opennsfw2 as n2
+from ffmpeg.asyncio import FFmpeg
 # import keyboard
 
 from bili_utils import BiliUtils
@@ -47,6 +50,24 @@ class Player:
         duration = self.player.get_length() / 1000
         logging.info(f"开始播放 {path}，时长 {duration}")
         return duration
+    
+    async def play_waiting(self):
+        '''
+        播放等待画面
+        '''
+        media: vlc.Media = self.instance.media_new(f'file:///./template/waiting.mp4')
+        self.player.set_media(media)
+        self.player.play()
+        logging.info(f"播放等待画面")
+
+    async def play_unsafe(self):
+        '''
+        播放不安全画面
+        '''
+        media: vlc.Media = self.instance.media_new(f'file:///./template/unsafe.mp4')
+        self.player.set_media(media)
+        self.player.play()
+        logging.info(f"播放不安全画面")
 
 class BiliPlayList():
     aid_set: set[int] = set()
@@ -118,6 +139,35 @@ class BiliPlayList():
                 "aid": aid,
                 "title": title
             })
+
+    async def is_safe_for_play(self,aid: int):
+        '''
+        判断是否适宜播放
+        '''
+        with open("./option/nsfwlist.csv","r", encoding="utf-8-sig") as csvfile:
+            lists = csv.DictReader(csvfile)
+            fields = lists.fieldnames
+            for single in lists:
+                if(aid == int(single["aid"])):
+                    if(float(single["probability"]) > 0.4):
+                        return False
+                    else:
+                        return True
+
+        _, nsfw_probabilities = n2.predict_video_frames(f'./video/{aid}.mp4',frame_interval=11)
+
+        max_possibilitiy = max(nsfw_probabilities)
+
+        with open("./option/nsfwlist.csv","a", encoding="utf-8-sig", newline='') as csvfile:
+            lists = csv.DictWriter(csvfile, fields)
+            lists.writerow({
+                "aid": aid,
+                "probability": max_possibilitiy
+            })
+
+        if(max_possibilitiy > 0.4):
+            return False
+        return True
     
     async def judge_by_aid(self,aid: int) -> tuple[bool,bool]:
         '''
@@ -362,6 +412,18 @@ class BiliPlayList():
                 info_list.append(sinfo)
         self.now_list_info = info_list
 
+    async def get_duration(self,aid: int) -> float:
+        '''获取视频长度'''
+        ffprobe = FFmpeg(executable="ffprobe").input(
+            f"./video/{aid}.mp4",
+            print_format="json",
+            show_streams=None,
+        )
+
+        media = json.loads(await ffprobe.execute())
+
+        return media['streams'][0]['duration']
+
 def find_latest_log(dir):
     list = os.listdir(dir)
     list.sort(key=lambda fn: os.path.getmtime(os.path.join(dir,fn)) if not os.path.isdir(os.path.join(dir,fn)) else 0)
@@ -510,10 +572,22 @@ async def running():
             continue
         if(BILI_PLAY_LIST.get_aid_num() <= 0):
             continue
+
+        await PLAYER.play_waiting()
+
         if(BILI_PLAY_LIST.get_now_num() > 0):
             aid, play_sender = BILI_PLAY_LIST.pick_now()
         else:
             aid, play_sender = BILI_PLAY_LIST.random_pick()
+
+        is_safe = await BILI_PLAY_LIST.is_safe_for_play(aid)
+
+        if(is_safe):
+            wait_time = await PLAYER.play(f"./video/{aid}.mp4")
+        else:
+            logging.info(f"{aid} 不安全，播放不安全画面")
+            await PLAYER.play_unsafe()
+            wait_time = await BILI_PLAY_LIST.get_duration(aid)
 
         await BILI_PLAY_LIST.update_now_playlist_info()
         await Messager.send_playlist(BILI_PLAY_LIST.get_now_list_info())
@@ -547,7 +621,7 @@ def check_dir():
     """
     检查文件夹是否齐全，否则就新建
     """
-    dirpaths = ["video","cookie","option","log"]
+    dirpaths = ["video","cookie","option","log","template"]
     for dirpath in dirpaths:
         if not os.path.exists(dirpath):
             logging.warning(f"文件夹不齐全，新建了 {dirpath} 文件夹")
@@ -559,6 +633,15 @@ def check_dir():
             "option/blacklist.csv", "w", encoding="utf-8-sig", newline=""
         ) as blackfile:
             header = ["aid", "title"]
+            blackInfo = csv.DictWriter(blackfile, header)
+            blackInfo.writeheader()
+
+    if not os.path.exists("./option/nsfwlist.csv"):
+        # 不适宜内容
+        with open(
+            "option/nsfwlist.csv", "w", encoding="utf-8-sig", newline=""
+        ) as blackfile:
+            header = ["aid", "probability"]
             blackInfo = csv.DictWriter(blackfile, header)
             blackInfo.writeheader()
 
