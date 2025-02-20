@@ -422,7 +422,7 @@ class BiliPlayList():
 
         media = json.loads(await ffprobe.execute())
 
-        return media['streams'][0]['duration']
+        return float(media['streams'][0]['duration'])
 
 def find_latest_log(dir):
     list = os.listdir(dir)
